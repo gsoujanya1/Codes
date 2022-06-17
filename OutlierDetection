@@ -1,0 +1,51 @@
+# 
+"""
+Outlier detection
+------
+Read a xlsx file with subjects as rows and columns as headers. Highlight vars out of quartile ranges and saves file
+
+Created on Wed Jun  8 17:02:50 2022
+@author: gsoujanya1
+"""
+
+import sys
+import pandas as pd
+
+inputfile = sys.argv[1] 
+outputfile = sys.argv[2]
+data = pd.read_excel (inputfile,header=0, index_col=0) 
+data=data.apply(pd.to_numeric)
+newdata=data.copy()
+
+cols=data.columns
+Q1 = data.quantile(0.25)
+Q3 = data.quantile(0.75)
+IQR = Q3 - Q1
+lower_range= (Q1 - 1.5 * IQR)
+lower_range[lower_range<0]=0
+upper_range=(Q3 + 1.5 * IQR)
+
+outlrs=[]
+[[outlrs.append([i,col]) for i in (data[col].gt(upper_range[col])).index[data[col].gt(upper_range[col])]] for col in cols]
+[[outlrs.append([i,col]) for i in (data[col].lt(lower_range[col])).index[data[col].lt(lower_range[col])]] for col in cols]
+outlrs=pd.DataFrame.from_records(outlrs, columns=["ID","Column"])
+
+def IDs(row):
+    if row.name in outlrs['ID'].values:
+        col=[]
+        for r in row.index:
+            low=lower_range[r]
+            up=upper_range[r]
+            if low<row[r]<up:
+                color='transparent'
+            elif row[r]<low:
+                color ='yellow'
+            else:
+                color ='red' 
+            col.append('background-color: {}'.format(color))
+        return col
+    else:
+        return ['background-color: transparent' for r in row]
+
+
+newdata.style.apply(IDs, axis=1).to_excel(outputfile)
